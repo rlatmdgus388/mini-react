@@ -35,6 +35,8 @@ export class FunctionComponent<P extends Props = Props> implements HookHost {
 
   /** 컨테이너를 비우고 상태를 새로 시작해 첫 렌더를 한다. */
   mount(): void {
+    // unmount 없이 다시 mount하면 이전 mount의 effect cleanup이 호출되지 않고 새므로 먼저 정리한다.
+    if (this.hasRendered && !this.disposed) this.unmount();
     this.disposed = false;
     this.hooks = [];
     this.hookIndex = 0;
@@ -67,10 +69,12 @@ export class FunctionComponent<P extends Props = Props> implements HookHost {
   /** 지금 상태로 렌더하고 이전 VDOM과 비교해 바뀐 부분만 DOM에 반영한다. 적용한 패치를 돌려준다. */
   update(): Patch[] {
     if (this.disposed) return [];
+    // 첫 렌더가 중간에 던졌다면 hooks[]에 일부만 채워져 있다. 성공한 적이 없으므로 기준이 될 수 없어 비우고 시작한다.
+    if (!this.hasRendered) this.hooks = [];
     this.hookIndex = 0;
     const rendered = withRootRender(this, () => this.renderFn(this.props));
     // 이전 렌더보다 훅을 적게 호출했다면 hooks[]의 뒷부분이 엉뚱한 슬롯으로 남으므로 commit 전에 막는다.
-    if (this.hasRendered && this.hookIndex !== this.hooks.length) {
+    if (this.hookIndex !== this.hooks.length) {
       throw new Error(
         '훅 호출 개수가 이전 렌더와 다릅니다. 훅은 조건문·반복문 안에서 호출하지 말고 항상 같은 순서로 호출해야 합니다.',
       );
@@ -122,6 +126,8 @@ export class FunctionComponent<P extends Props = Props> implements HookHost {
       }
     };
 
+    // cleanup은 호출 직전에 슬롯에서 떼어 낸다. cleanup 도중 unmount()가 불려도
+    // 아직 호출되지 않은 cleanup은 unmount가 호출하고, 여기서 다시 호출하지 않는다.
     for (const slot of pending) {
       slot.pending = false;
       const cleanup = slot.cleanup;
@@ -129,9 +135,13 @@ export class FunctionComponent<P extends Props = Props> implements HookHost {
       if (cleanup) attempt(cleanup);
     }
     for (const slot of pending) {
+      if (this.disposed) break; // 앞의 effect/cleanup이 unmount했다면 남은 effect는 실행하지 않는다.
       attempt(() => {
         const result = slot.effect();
-        slot.cleanup = typeof result === 'function' ? result : undefined;
+        const cleanup = typeof result === 'function' ? result : undefined;
+        // effect 안에서 unmount됐다면 돌려받은 cleanup을 호출해 줄 사람이 없으므로 바로 호출한다.
+        if (this.disposed) cleanup?.();
+        else slot.cleanup = cleanup;
       });
     }
     if (errors.length > 0) throw errors[0];

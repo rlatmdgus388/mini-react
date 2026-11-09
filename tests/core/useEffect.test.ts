@@ -443,7 +443,8 @@ describe('useEffect', () => {
       }, root);
       app.mount();
       extra = true;
-      expect(() => app.update()).toThrow(/훅 호출 개수|더 많이/);
+      expect(() => app.update()).toThrow(/이전 렌더보다 많습니다/);
+      expect(app.hooks).toHaveLength(1); // 슬롯을 만들지 못한 채 던졌으므로 hooks는 늘지 않는다
     });
 
     it('에러가 나도 DOM은 이전 렌더 결과를 유지한다', () => {
@@ -473,6 +474,132 @@ describe('useEffect', () => {
       setN(2);
       await flush();
       expect(root.textContent).toBe('4');
+    });
+  });
+
+  describe('보강: 정리(cleanup) 누수와 실패 후 재시도', () => {
+    it('effect 안에서 unmount해도 그 effect가 돌려준 cleanup은 호출된다', () => {
+      const cleanup = vi.fn();
+      const root = container();
+      let app!: FunctionComponent;
+      app = new FunctionComponent(() => {
+        useEffect(() => {
+          app.unmount();
+          return cleanup;
+        }, []);
+        return h('div');
+      }, root);
+      app.mount();
+      expect(cleanup).toHaveBeenCalledTimes(1);
+      expect(root.childNodes).toHaveLength(0);
+    });
+
+    it('effect 안에서 unmount하면 같은 렌더의 남은 effect는 실행되지 않는다', () => {
+      const second = vi.fn();
+      const root = container();
+      let app!: FunctionComponent;
+      app = new FunctionComponent(() => {
+        useEffect(() => {
+          app.unmount();
+        }, []);
+        useEffect(second, []);
+        return h('div');
+      }, root);
+      app.mount();
+      expect(second).not.toHaveBeenCalled();
+    });
+
+    it('cleanup 안에서 unmount해도 다른 effect의 cleanup이 한 번씩만 호출되고 새 effect는 실행되지 않는다', () => {
+      let dep = 0;
+      const effectA = vi.fn();
+      const cleanupB = vi.fn();
+      const effectB = vi.fn(() => cleanupB);
+      const root = container();
+      let app!: FunctionComponent;
+      app = new FunctionComponent(() => {
+        useEffect(() => {
+          effectA();
+          return () => app.unmount();
+        }, [dep]);
+        useEffect(effectB, [dep]);
+        return h('div');
+      }, root);
+      app.mount();
+      dep = 1;
+      app.update();
+      expect(cleanupB).toHaveBeenCalledTimes(1);
+      expect(effectA).toHaveBeenCalledTimes(1);
+      expect(effectB).toHaveBeenCalledTimes(1);
+    });
+
+    it('unmount 없이 mount를 다시 호출하면 이전 mount의 cleanup이 먼저 호출된다', () => {
+      const cleanup = vi.fn();
+      const root = container();
+      const app = new FunctionComponent(() => {
+        useEffect(() => cleanup, []);
+        return h('div');
+      }, root);
+      app.mount();
+      app.mount();
+      expect(cleanup).toHaveBeenCalledTimes(1);
+    });
+
+    it('첫 렌더가 throw한 뒤 더 적은 훅으로 재시도해도 이후 렌더가 정상 동작한다', () => {
+      let attempt = 0;
+      const root = container();
+      const app = new FunctionComponent(() => {
+        useState(0);
+        if (attempt++ === 0) {
+          useState(1);
+          throw new Error('first render boom');
+        }
+        return h('p', null, 'ok');
+      }, root);
+      expect(() => app.mount()).toThrow('first render boom');
+      app.update(); // 재시도: 훅 1개
+      expect(app.hooks).toHaveLength(1);
+      expect(() => app.update()).not.toThrow();
+      expect(root.textContent).toBe('ok');
+    });
+
+    it('렌더가 실패했다가 재시도에 성공하면 effect는 정확히 한 번만 더 실행된다', () => {
+      let dep = 0;
+      let fail = false;
+      const effect = vi.fn();
+      const root = container();
+      const app = new FunctionComponent(() => {
+        useEffect(effect, [dep]);
+        if (fail) throw new Error('render boom');
+        return h('div');
+      }, root);
+      app.mount();
+      expect(effect).toHaveBeenCalledTimes(1);
+      dep = 1;
+      fail = true;
+      expect(() => app.update()).toThrow('render boom');
+      expect(effect).toHaveBeenCalledTimes(1); // 실패한 렌더에서는 실행되지 않는다
+      fail = false;
+      app.update();
+      expect(effect).toHaveBeenCalledTimes(2);
+      app.update();
+      expect(effect).toHaveBeenCalledTimes(2); // 중복 실행 없음
+    });
+
+    it('cleanup이 throw해도 새 effect는 실행되고 첫 예외가 전달된다', () => {
+      let dep = 0;
+      const effectB = vi.fn();
+      const root = container();
+      const app = new FunctionComponent(() => {
+        useEffect(() => () => {
+          throw new Error('cleanup boom');
+        }, [dep]);
+        useEffect(effectB, [dep]);
+        return h('div');
+      }, root);
+      app.mount();
+      dep = 1;
+      expect(() => app.update()).toThrow('cleanup boom');
+      expect(effectB).toHaveBeenCalledTimes(2);
     });
   });
 });

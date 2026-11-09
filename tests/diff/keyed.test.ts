@@ -221,4 +221,61 @@ describe('keyed diff', () => {
       expect(container.querySelector('hr')).toBe(hr);
     });
   });
+
+  describe('보강: 패치 고정과 혼합 목록', () => {
+    it('삭제·이동·생성이 섞인 경우 패치 순서와 경로를 정확히 고정한다', () => {
+      const added = li('x');
+      const patches = diff(ul(li('a'), li('b'), li('c')), ul(li('c'), added, li('a')));
+      expect(patches).toEqual([
+        { type: 'REMOVE', path: [1] },
+        { type: 'MOVE', path: [1], to: 0 },
+        { type: 'CREATE', path: [1], vnode: added },
+      ]);
+    });
+
+    it('같은 key의 type이 바뀌고 위치도 바뀌면 REPLACE(old 경로) 뒤에 MOVE가 나온다', () => {
+      const replaced = h('p', { key: 'a' }, 'a');
+      const patches = diff(ul(li('a'), li('b')), ul(li('b'), replaced));
+      expect(patches).toEqual([
+        { type: 'REPLACE', path: [0], vnode: replaced },
+        { type: 'MOVE', path: [1], to: 0 },
+      ]);
+    });
+
+    it('type이 바뀐 key는 새 노드가 되고, 이동한 다른 key는 노드를 재사용한다', () => {
+      const old = ul(li('a'), li('b'));
+      const container = mount(old);
+      const [oldA, oldB] = Array.from(container.querySelectorAll('li'));
+      patch(container, diff(old, ul(li('b'), h('p', { key: 'a' }, 'a'))));
+      const children = Array.from(container.firstElementChild!.children);
+      expect(children[0]).toBe(oldB);
+      expect(children[1]).not.toBe(oldA);
+      expect(children[1]!.tagName).toBe('P');
+    });
+
+    it('key 있는 항목이 앞에 끼면 뒤쪽 텍스트는 자리(인덱스) 기준이라 재사용되지 않고 삭제 후 생성된다', () => {
+      // 알려진 한계: key 없는 노드의 식별자는 인덱스라서, 앞에 항목이 끼면 짝이 어긋난다.
+      const old = h('div', null, 't', li('a'));
+      const next = h('div', null, li('x'), 't', li('a'));
+      const patches = diff(old, next);
+      expect(patches.some((p) => p.type === 'REMOVE' && p.path.join() === '0')).toBe(true);
+      expect(patches.some((p) => p.type === 'CREATE' && p.vnode.type === '#text')).toBe(true);
+
+      const container = mount(old);
+      const oldLi = container.querySelector('li');
+      patch(container, patches);
+      expect(container.innerHTML).toBe('<div><li>x</li>t<li>a</li></div>');
+      expect(container.querySelectorAll('li')[1]).toBe(oldLi); // key 있는 항목은 그대로 재사용된다
+    });
+
+    it('key 없는 엘리먼트가 key 있는 항목 사이에서 인덱스로 짝지어진다', () => {
+      const old = h('div', null, li('a'), h('hr'), li('b'));
+      const next = h('div', null, li('b'), h('hr'), li('a'));
+      const container = mount(old);
+      const hr = container.querySelector('hr');
+      patch(container, diff(old, next));
+      expect(container.innerHTML).toBe('<div><li>b</li><hr><li>a</li></div>');
+      expect(container.querySelector('hr')).toBe(hr);
+    });
+  });
 });

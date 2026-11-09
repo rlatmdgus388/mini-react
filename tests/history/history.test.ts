@@ -142,5 +142,26 @@ describe('History', () => {
       expect(history.undo()).toBe('b');
       expect(history.redo()).toBe('c');
     });
+
+    it('limit=1이면 항상 최신 상태 하나만 보관한다', () => {
+      const history = new History('a', { limit: 1 });
+      history.push('b');
+      history.push('c');
+      expect(history.size).toBe(1);
+      expect(history.current).toBe('c');
+      expect(history.canUndo).toBe(false);
+      expect(history.canRedo).toBe(false);
+    });
+
+    it('redo 기록을 버린 뒤 push해도 limit이 지켜진다', () => {
+      const history = new History(0, { limit: 3 });
+      [1, 2].forEach((n) => history.push(n));
+      history.undo();
+      history.push(9);
+      expect(history.size).toBe(3);
+      expect(history.current).toBe(9);
+      expect(history.undo()).toBe(1);
+      expect(history.canRedo).toBe(true);
+    });
   });
 });

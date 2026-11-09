@@ -307,6 +307,24 @@ describe('Phase1', () => {
     });
   });
 
+  describe('destroy 보강', () => {
+    it('destroy 후에는 툴바 버튼 클릭도 무시된다', () => {
+      const { test, phase1 } = setup();
+      phase1.bindToolbar(document);
+      phase1.destroy();
+      document.querySelector<HTMLButtonElement>('[data-action="add-paragraph"]')!.click();
+      expect(test.querySelectorAll('p')).toHaveLength(1);
+    });
+
+    it('destroy는 리스너만 해제한다 (메서드를 직접 호출하면 여전히 동작한다)', () => {
+      const { real, test, phase1 } = setup();
+      phase1.destroy();
+      test.querySelector('p')!.firstChild!.textContent = '직접 호출';
+      phase1.patch();
+      expect(real.querySelector('p')!.textContent).toBe('직접 호출');
+    });
+  });
+
   describe('mountPhase1', () => {
     it('문서의 id/data-action 요소를 찾아 연결한다', () => {
       document.body.innerHTML = FIXTURE;

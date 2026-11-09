@@ -321,6 +321,71 @@ describe('patch', () => {
     });
   });
 
+  describe('보강: type 우선 적용, select, 네임스페이스, 혼합 자식', () => {
+    it('type과 value가 함께 바뀌어도 최종 상태가 올바르다 (선언 순서와 무관)', () => {
+      const old = h('input', { type: 'text', value: 'a' });
+      const next = h('input', { value: 'v', type: 'checkbox' });
+      const container = mount(old);
+      const input = container.querySelector('input')!;
+      patch(container, diff(old, next));
+      expect(input.type).toBe('checkbox');
+      expect(input.getAttribute('value')).toBe('v');
+      expect(input.value).toBe('v');
+    });
+
+    it('select의 value가 바뀌면서 기존 option이 REMOVE되어도 값이 반영된다', () => {
+      const old = h(
+        'select',
+        { value: 'c' },
+        h('option', { value: 'a' }, 'A'),
+        h('option', { value: 'b' }, 'B'),
+        h('option', { value: 'c' }, 'C'),
+      );
+      const next = h('select', { value: 'a' }, h('option', { value: 'a' }, 'A'));
+      const container = mount(old);
+      const select = container.querySelector('select')!;
+      expect(select.value).toBe('c');
+      patch(container, diff(old, next));
+      expect(select.options.length).toBe(1);
+      expect(select.value).toBe('a');
+    });
+
+    it('foreignObject 안에서 REPLACE한 노드는 HTML 네임스페이스를 가진다', () => {
+      const container = applyDiff(
+        h('svg', null, h('foreignObject', null, h('div'))),
+        h('svg', null, h('foreignObject', null, h('section'))),
+      );
+      expect(container.querySelector('section')!.namespaceURI).toBe(HTML_NS);
+    });
+
+    it('SVG에서 HTML로, HTML에서 SVG로 바꿀 때 각자 올바른 네임스페이스를 가진다', () => {
+      const toHtml = applyDiff(h('div', null, h('svg')), h('div', null, h('span')));
+      expect(toHtml.querySelector('span')!.namespaceURI).toBe(HTML_NS);
+      const toSvg = applyDiff(h('div', null, h('p')), h('div', null, h('svg', null, h('circle'))));
+      expect(toSvg.querySelector('svg')!.namespaceURI).toBe(SVG_NS);
+      expect(toSvg.querySelector('circle')!.namespaceURI).toBe(SVG_NS);
+    });
+
+    it('텍스트·엘리먼트가 섞인 자식에서 뒤쪽 텍스트 노드를 지운다', () => {
+      const next = h('p', null, 'a', h('b', null, 'b'));
+      const container = applyDiff(h('p', null, 'a', h('b', null, 'b'), 'c', h('i', null, 'd')), next);
+      expect(container.innerHTML).toBe('<p>a<b>b</b></p>');
+      expectSameAsFreshRender(container, next);
+    });
+
+    it('텍스트 자리를 엘리먼트로 교체해도 앞뒤 형제의 위치가 유지된다', () => {
+      const next = h('p', null, h('b', null, 'b'), h('u', null, 'u'), h('i', null, 'i'));
+      const container = applyDiff(h('p', null, h('b', null, 'b'), 'x', h('i', null, 'i')), next);
+      expect(container.innerHTML).toBe('<p><b>b</b><u>u</u><i>i</i></p>');
+    });
+
+    it('엘리먼트 자리를 텍스트로 교체해도 앞뒤 형제의 위치가 유지된다', () => {
+      const next = h('p', null, h('b', null, 'b'), 'x', h('i', null, 'i'));
+      const container = applyDiff(h('p', null, h('b', null, 'b'), h('u', null, 'u'), h('i', null, 'i')), next);
+      expect(container.innerHTML).toBe('<p><b>b</b>x<i>i</i></p>');
+    });
+  });
+
   describe('입력 불변성과 오류', () => {
     it('패치 배열과 그 안의 VNode를 변형하지 않는다', () => {
       const deepFreeze = <T>(o: T): T => {

@@ -13,6 +13,11 @@ function resolve(container: Element, path: Path): Node {
   return node;
 }
 
+function parentOf(node: Node): Node {
+  if (!node.parentNode) throw new Error('patch: 대상 노드가 DOM에서 분리되어 있습니다.');
+  return node.parentNode;
+}
+
 /** 부모 노드와 삽입 인덱스. path가 []이면 container의 루트 자리다. */
 function resolveSlot(container: Element, path: Path): { parent: Node; index: number } {
   if (path.length === 0) return { parent: container, index: 0 };
@@ -58,12 +63,12 @@ export function patch(container: Element, patches: readonly Patch[]): void {
       }
       case 'REMOVE': {
         const node = resolve(container, p.path);
-        node.parentNode!.removeChild(node);
+        parentOf(node).removeChild(node);
         break;
       }
       case 'REPLACE': {
         const node = resolve(container, p.path);
-        const parent = node.parentNode!;
+        const parent = parentOf(node);
         parent.replaceChild(createDOM(p.vnode, childNamespace(parent)), node);
         break;
       }

@@ -35,3 +35,36 @@
 ### 한계 (의도적)
 - 자식은 **인덱스 기준**으로만 짝지어 비교한다. 리스트 앞에 항목이 끼어들면 뒤의 항목이 전부 바뀐 것으로 계산된다. `key` 기반 비교와 `MOVE`는 S5에서 추가한다.
 - `key`는 아직 비교하지 않는다.
+
+---
+
+## S4 — `patch(container, patches)` (`patch.ts`)
+
+### 왜 필요한가
+- `diff`는 "무엇이 바뀌었는가"만 계산할 뿐 DOM을 건드리지 않는다. 그 목록을 실제 DOM에 반영하는 단계가 `patch`다.
+- 계산(diff)과 적용(patch)을 나눠 두면, 계산은 DOM 없이 테스트하고 적용은 jsdom에서 따로 검증할 수 있다. 같은 패치 목록을 로그에 보여주거나(S10) 하이라이트하는 데도 재사용할 수 있다.
+
+### 동작 원리
+- **container 모델.** `patch(container, patches)`의 `container`는 루트 VNode에 대응하는 DOM을 **첫 번째 자식**으로 가진 엘리먼트다. 그래서 `path []`는 `container.childNodes[0]`이고, 루트가 없던 상태(null→노드), 루트 삭제, 루트 교체도 같은 방식으로 처리된다. 루트 노드에는 "부모"가 필요하기 때문이다.
+- **path 해석.** 루트에서 시작해 `childNodes[index]`를 따라 내려간다. 경로가 없으면 조용히 넘어가지 않고 에러를 던진다. diff와 DOM이 어긋났다는 신호이기 때문이다.
+- **순서대로 적용.** diff가 만든 순서(PROPS → 자식 재귀 → CREATE 오름차순 → REMOVE 내림차순)를 그대로 따르면 인덱스가 밀리지 않는다. patch는 정렬을 다시 하지 않는다.
+
+| Patch | 적용 |
+|---|---|
+| `CREATE` | `createDOM`으로 만들어 `parent.insertBefore(node, parent.childNodes[index] ?? null)` |
+| `REMOVE` | `parent.removeChild(node)` |
+| `REPLACE` | `createDOM`으로 만들어 `parent.replaceChild(new, old)` |
+| `TEXT` | `Text.data = text`. 노드는 그대로 두고 내용만 바꾼다 |
+| `PROPS` | `remove`는 `removeProp`, `set`은 `setProp` |
+
+### 설계 결정
+- **노드 재사용.** 변경이 없는 노드는 패치가 없으므로 같은 DOM 객체로 남는다. 속성·텍스트만 바뀐 노드도 새로 만들지 않고 제자리에서 고친다. 그래서 입력창의 **포커스, 커서, 사용자가 입력 중인 값**이 유지된다. 테스트에서 `document.activeElement`와 노드 identity로 확인한다.
+- **입력값 보호.** `value`/`checked`는 property로 다룬다(S2의 `props`). diff가 `value` 변경을 내보낼 때만 덮어쓰고, 같으면 사용자가 입력한 값을 건드리지 않는다.
+- **네임스페이스 이어받기.** 새 노드는 부모의 네임스페이스를 따른다. SVG 안에서 만든 노드는 SVG, `foreignObject` 안은 HTML이다. 이를 빼먹으면 `<circle>`이 HTML 엘리먼트로 만들어져 화면에 그려지지 않는다.
+- **select의 value는 마지막에.** `select.value`는 일치하는 `option`이 이미 있어야 반영된다. 같은 패치 목록에서 option이 CREATE되는 경우를 위해, select의 `value` 적용만 모든 패치가 끝난 뒤로 미룬다.
+- **이벤트 핸들러.** `setProp`이 이전 리스너를 떼고 새 리스너를 붙이므로, 핸들러가 바뀌어도 이전 핸들러가 남아 중복 호출되지 않는다.
+- **입력 불변.** 패치 배열과 그 안의 VNode를 변형하지 않는다. 읽기 전용(`readonly Patch[]`)으로 받고, deep freeze 상태에서도 동작하는지 테스트한다.
+
+### 한계 (의도적)
+- 형제 순서가 바뀐 경우(MOVE)는 아직 다루지 않는다. 인덱스 기준 diff가 내보낸 패치만 적용한다. key 기반 재정렬은 S5에서 `MOVE` 패치와 함께 추가한다.
+- 적용 도중 에러가 나면 이미 적용된 패치는 되돌리지 않는다. diff가 만든 패치는 항상 적용 가능해야 하므로, 에러는 DOM이 외부에서 변경되었다는 신호로 본다.

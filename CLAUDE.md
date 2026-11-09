@@ -37,7 +37,7 @@ mini_react/
 | S1 | VNode 타입, `h()` | `tests/vdom/h.test.ts` | null/중첩배열/숫자/key 정규화 테스트 통과 | 완료 |
 | S2 | `fromDOM` / `createDOM` / `props` | `tests/vdom/fromDOM.test.ts`, `tests/vdom/createDOM.test.ts`, `tests/vdom/props.test.ts` | DOM→VDOM→DOM 왕복 동일, 공백·주석·script·SVG·input 엣지 통과 | 완료 |
 | S3 | `diff` 5가지 케이스 | `tests/diff/diff.test.ts` | 케이스별 패치 목록 정확, 동일 트리는 빈 패치 | 완료 |
-| S4 | `patch` 적용 | `tests/diff/patch.test.ts` | diff→patch 후 DOM이 목표 VDOM과 동일, 변경 없는 노드는 identity 유지 | 예정 |
+| S4 | `patch` 적용 | `tests/diff/patch.test.ts` | diff→patch 후 DOM이 목표 VDOM과 동일, 변경 없는 노드는 identity 유지 | 완료 |
 | S5 | keyed diff(MOVE) + fuzz | `tests/diff/keyed.test.ts`, `tests/diff/fuzz.test.ts` | 랜덤 트리 쌍에서 patch 결과가 새 트리 렌더와 동일 | 예정 |
 | S6 | history + Phase 1 데모 페이지 | `tests/history/history.test.ts`, `tests/demo/phase1.test.ts` | undo/redo 및 경계 비활성, 두 영역 동기화 | 예정 |
 | S7 | `FunctionComponent` + `useState` (+ batching) | `tests/core/FunctionComponent.test.ts`, `tests/core/useState.test.ts` | 상태 유지, 리렌더, 함수형 업데이트, 동일값 무시, 배치 시 렌더 1회 | 예정 |

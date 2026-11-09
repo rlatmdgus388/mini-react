@@ -456,4 +456,65 @@ describe('patch', () => {
       });
     }
   });
+
+  describe('반환값: 변경이 일어난 노드 (시각화용)', () => {
+    function run(oldV: VNode | null, newV: VNode | null) {
+      const container = mount(oldV);
+      const touched = patch(container, diff(oldV, newV));
+      return { container, touched };
+    }
+
+    it('빈 패치는 빈 배열을 돌려준다', () => {
+      const container = mount(h('div'));
+      expect(patch(container, [])).toEqual([]);
+    });
+
+    it('TEXT: 내용이 바뀐 텍스트 노드', () => {
+      const { container, touched } = run(h('p', null, 'old'), h('p', null, 'new'));
+      expect(touched).toEqual([container.querySelector('p')!.firstChild]);
+    });
+
+    it('PROPS: 속성이 바뀐 요소', () => {
+      const { container, touched } = run(h('div', { id: 'a' }), h('div', { id: 'b' }));
+      expect(touched).toEqual([container.firstElementChild]);
+    });
+
+    it('CREATE: 새로 만든 노드', () => {
+      const { container, touched } = run(h('ul', null, h('li', null, 'a')), h('ul', null, h('li', null, 'a'), h('li', null, 'b')));
+      expect(touched).toEqual([container.querySelectorAll('li')[1]]);
+    });
+
+    it('REPLACE: 새로 들어온 노드 (사라진 노드는 포함하지 않는다)', () => {
+      const container = mount(h('div', null, h('p')));
+      const oldP = container.querySelector('p');
+      const touched = patch(container, diff(h('div', null, h('p')), h('div', null, h('span'))));
+      expect(touched).toEqual([container.querySelector('span')]);
+      expect(touched).not.toContain(oldP);
+    });
+
+    it('REMOVE: 자식이 사라진 부모 요소', () => {
+      const { container, touched } = run(h('ul', null, h('li', null, 'a'), h('li', null, 'b')), h('ul', null, h('li', null, 'a')));
+      expect(touched).toEqual([container.querySelector('ul')]);
+    });
+
+    it('REMOVE: 루트를 지우면 컨테이너는 포함하지 않는다', () => {
+      const { touched } = run(h('div'), null);
+      expect(touched).toEqual([]);
+    });
+
+    it('MOVE: 옮겨진 노드', () => {
+      const li = (k: string) => h('li', { key: k }, k);
+      const container = mount(h('ul', null, li('a'), li('b'), li('c')));
+      const [a] = Array.from(container.querySelectorAll('li'));
+      const touched = patch(container, diff(h('ul', null, li('a'), li('b'), li('c')), h('ul', null, li('b'), li('c'), li('a'))));
+      expect(touched).toEqual([a]);
+    });
+
+    it('같은 노드가 여러 패치에 걸려도 한 번만 담긴다', () => {
+      const { container, touched } = run(h('p', { class: 'a' }, 'x', h('b')), h('p', { class: 'b' }, 'x', h('b'), h('i')));
+      const p = container.querySelector('p')!;
+      expect(touched.filter((n) => n === p)).toHaveLength(1);
+      expect(new Set(touched).size).toBe(touched.length);
+    });
+  });
 });

@@ -40,7 +40,7 @@ mini_react/
 | S4 | `patch` 적용 | `tests/diff/patch.test.ts` | diff→patch 후 DOM이 목표 VDOM과 동일, 변경 없는 노드는 identity 유지 | 완료 |
 | S5 | keyed diff(MOVE) + fuzz | `tests/diff/keyed.test.ts`, `tests/diff/fuzz.test.ts` | 랜덤 트리 쌍에서 patch 결과가 새 트리 렌더와 동일 | 완료 |
 | S6 | history + Phase 1 데모 페이지 | `tests/history/history.test.ts`, `tests/demo/phase1.test.ts` | undo/redo 및 경계 비활성, 두 영역 동기화 | 완료 |
-| S7 | `FunctionComponent` + `useState` (+ batching) | `tests/core/FunctionComponent.test.ts`, `tests/core/useState.test.ts` | 상태 유지, 리렌더, 함수형 업데이트, 동일값 무시, 배치 시 렌더 1회 | 예정 |
+| S7 | `FunctionComponent` + `useState` (+ batching) | `tests/core/FunctionComponent.test.ts`, `tests/core/useState.test.ts` | 상태 유지, 리렌더, 함수형 업데이트, 동일값 무시, 배치 시 렌더 1회 | 완료 |
 | S8 | `useMemo` / `useEffect` | `tests/core/useMemo.test.ts`, `tests/core/useEffect.test.ts` | deps 재계산, cleanup 순서, mount/unmount, 훅 사용 제약 위반 에러 | 예정 |
 | S9 | Phase 2 Todo 데모 + 통합 | `tests/demo/app.test.ts` | 상태 변경 시 변경된 노드만 patch (spy로 검증), 입력 포커스 유지 | 예정 |
 | S10 | 패치 로그·하이라이트 시각화, 최종 README | `tests/demo/patchLog.test.ts` | 전체 테스트·타입체크·빌드 통과 | 예정 |

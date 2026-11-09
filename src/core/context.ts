@@ -5,13 +5,35 @@ export interface StateSlot {
   setState: (action: unknown) => void;
 }
 
-export type HookSlot = StateSlot;
+/** useMemo가 캐시한 값과 그때의 deps */
+export interface MemoSlot {
+  kind: 'memo';
+  value: unknown;
+  deps: unknown[] | undefined;
+}
+
+export type EffectCleanup = () => void;
+export type EffectCallback = () => void | EffectCleanup;
+
+/** useEffect의 effect, 마지막으로 실행한 deps, 그때 돌려받은 cleanup */
+export interface EffectSlot {
+  kind: 'effect';
+  effect: EffectCallback;
+  deps: unknown[] | undefined;
+  cleanup: EffectCleanup | undefined;
+  /** 이번 렌더에서 실행해야 하는지 (commit 이후에 소비된다) */
+  pending: boolean;
+}
+
+export type HookSlot = StateSlot | MemoSlot | EffectSlot;
 
 /** 훅이 상태를 읽고 쓰기 위해 필요한 컴포넌트의 최소 인터페이스 */
 export interface HookHost {
   hooks: HookSlot[];
   /** 이번 렌더에서 다음에 사용할 훅 슬롯 번호 */
   hookIndex: number;
+  /** 한 번이라도 렌더가 끝났는지. 이후에는 훅 개수·종류가 바뀌면 에러다. */
+  hasRendered: boolean;
   /** 다시 렌더하도록 예약한다 (배치) */
   schedule(): void;
 }

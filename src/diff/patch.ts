@@ -49,9 +49,14 @@ function applyProps(el: Element, set: Record<string, unknown>, remove: string[],
 /**
  * 패치 목록을 실제 DOM에 적용한다. diff가 돌려준 순서대로 적용하면 된다.
  * @param container 루트 VNode에 대응하는 DOM을 첫 번째 자식으로 가진 엘리먼트 (루트가 없으면 비어 있어도 된다)
+ * @returns 변경이 일어난 노드들 (중복 없음, 시각화용).
+ *   CREATE/REPLACE/MOVE는 새로 들어오거나 옮겨진 노드, TEXT는 텍스트 노드, PROPS는 요소,
+ *   REMOVE는 자식이 사라진 부모 요소다(루트를 지운 경우는 컨테이너를 포함하지 않는다).
+ *   이후 패치로 DOM에서 떨어진 노드가 섞일 수 있으니 쓰기 전에 연결 여부를 확인한다.
  */
-export function patch(container: Element, patches: readonly Patch[]): void {
+export function patch(container: Element, patches: readonly Patch[]): Node[] {
   const deferredSelects: [HTMLSelectElement, unknown][] = [];
+  const touched = new Set<Node>();
 
   for (const p of patches) {
     switch (p.type) {
@@ -59,11 +64,14 @@ export function patch(container: Element, patches: readonly Patch[]): void {
         const { parent, index } = resolveSlot(container, p.path);
         const node = createDOM(p.vnode, childNamespace(parent));
         parent.insertBefore(node, parent.childNodes[index] ?? null);
+        touched.add(node);
         break;
       }
       case 'REMOVE': {
         const node = resolve(container, p.path);
-        parentOf(node).removeChild(node);
+        const parent = parentOf(node);
+        parent.removeChild(node);
+        if (parent !== container) touched.add(parent);
         break;
       }
       case 'MOVE': {
@@ -73,12 +81,15 @@ export function patch(container: Element, patches: readonly Patch[]): void {
         // 노드를 형제 목록에서 뺀 목록 기준으로 to번째 자리 앞에 끼운다. insertBefore는 노드를 옮기므로 DOM 노드는 재사용된다.
         const siblings = Array.from(parent.childNodes).filter((n) => n !== node);
         parent.insertBefore(node, siblings[p.to] ?? null);
+        touched.add(node);
         break;
       }
       case 'REPLACE': {
         const node = resolve(container, p.path);
         const parent = parentOf(node);
-        parent.replaceChild(createDOM(p.vnode, childNamespace(parent)), node);
+        const replacement = createDOM(p.vnode, childNamespace(parent));
+        parent.replaceChild(replacement, node);
+        touched.add(replacement);
         break;
       }
       case 'TEXT': {
@@ -87,6 +98,7 @@ export function patch(container: Element, patches: readonly Patch[]): void {
           throw new Error(`patch: TEXT 패치 대상이 텍스트 노드가 아닙니다: [${p.path.join(', ')}]`);
         }
         (node as Text).data = p.text;
+        touched.add(node);
         break;
       }
       case 'PROPS': {
@@ -95,10 +107,12 @@ export function patch(container: Element, patches: readonly Patch[]): void {
           throw new Error(`patch: PROPS 패치 대상이 엘리먼트가 아닙니다: [${p.path.join(', ')}]`);
         }
         applyProps(node, p.set, p.remove, deferredSelects);
+        touched.add(node);
         break;
       }
     }
   }
 
   for (const [select, value] of deferredSelects) setProp(select, 'value', value);
+  return Array.from(touched);
 }

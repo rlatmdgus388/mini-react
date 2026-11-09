@@ -17,9 +17,12 @@ export interface Phase1Elements {
   forwardButton: HTMLButtonElement;
 }
 
+/** 실제 영역에 patch를 일으킨 동작 */
+export type Phase1Source = 'Patch' | '뒤로' | '앞으로';
+
 export interface Phase1Options {
-  /** patch(또는 뒤로/앞으로)가 실제 영역에 적용된 직후 호출된다. */
-  onPatch?: (patches: Patch[]) => void;
+  /** patch(또는 뒤로/앞으로)가 실제 영역에 적용된 직후, 패치 목록·변경된 노드·출처와 함께 호출된다. */
+  onPatch?: (patches: Patch[], touched: Node[], source: Phase1Source) => void;
 }
 
 /** 영역의 자식들을 하나의 루트 VNode로 감싼다. patch는 루트 하나를 전제로 하기 때문이다. */
@@ -59,22 +62,22 @@ export class Phase1 {
     const next = rootOf(fromDOMChildren(this.els.test));
     const patches = diff(this.history.current, next);
     if (patches.length === 0) return [];
-    patch(this.els.real, patches);
+    const touched = patch(this.els.real, patches);
     this.shown = next;
     this.history.push(next);
     this.updateButtons();
-    this.options.onPatch?.(patches);
+    this.options.onPatch?.(patches, touched, 'Patch');
     return patches;
   }
 
   back(): void {
     if (!this.history.canUndo) return;
-    this.travel(this.history.undo());
+    this.travel(this.history.undo(), '뒤로');
   }
 
   forward(): void {
     if (!this.history.canRedo) return;
-    this.travel(this.history.redo());
+    this.travel(this.history.redo(), '앞으로');
   }
 
   /**
@@ -102,13 +105,13 @@ export class Phase1 {
   // --- 내부 ---
 
   /** history의 상태로 이동한다. 실제 영역은 diff/patch로, 테스트 영역은 통째로 다시 렌더한다. */
-  private travel(target: ElementVNode): void {
+  private travel(target: ElementVNode, source: Phase1Source): void {
     const patches = diff(this.shown, target);
-    patch(this.els.real, patches);
+    const touched = patch(this.els.real, patches);
     this.shown = target;
     this.renderTest(target);
     this.updateButtons();
-    this.options.onPatch?.(patches);
+    if (patches.length > 0) this.options.onPatch?.(patches, touched, source);
   }
 
   private renderReal(vnode: ElementVNode): void {

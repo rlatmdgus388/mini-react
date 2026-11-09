@@ -7,8 +7,11 @@ import type { EffectSlot, HookHost, HookSlot } from './context';
 import { resolveTree } from './render';
 
 export interface FunctionComponentOptions {
-  /** DOM에 patch가 적용된 직후, 적용된 패치 목록과 함께 호출된다. (빈 패치면 호출하지 않는다) */
-  onPatch?: (patches: Patch[]) => void;
+  /**
+   * DOM에 patch가 적용된 직후, 적용된 패치 목록과 변경이 일어난 노드들과 함께 호출된다.
+   * (빈 패치면 호출하지 않는다)
+   */
+  onPatch?: (patches: Patch[], touched: Node[]) => void;
 }
 
 /**
@@ -84,8 +87,8 @@ export class FunctionComponent<P extends Props = Props> implements HookHost {
 
     const patches = diff(this.prev, next);
     if (patches.length > 0) {
-      patch(this.container, patches);
-      this.options.onPatch?.(patches);
+      const touched = patch(this.container, patches);
+      this.options.onPatch?.(patches, touched);
     }
     this.prev = next;
     this.flushEffects();

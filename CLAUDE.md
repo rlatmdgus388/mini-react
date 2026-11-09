@@ -42,7 +42,7 @@ mini_react/
 | S6 | history + Phase 1 데모 페이지 | `tests/history/history.test.ts`, `tests/demo/phase1.test.ts` | undo/redo 및 경계 비활성, 두 영역 동기화 | 완료 |
 | S7 | `FunctionComponent` + `useState` (+ batching) | `tests/core/FunctionComponent.test.ts`, `tests/core/useState.test.ts` | 상태 유지, 리렌더, 함수형 업데이트, 동일값 무시, 배치 시 렌더 1회 | 완료 |
 | S8 | `useMemo` / `useEffect` | `tests/core/useMemo.test.ts`, `tests/core/useEffect.test.ts` | deps 재계산, cleanup 순서, mount/unmount, 훅 사용 제약 위반 에러 | 완료 |
-| S9 | Phase 2 Todo 데모 + 통합 | `tests/demo/app.test.ts` | 상태 변경 시 변경된 노드만 patch (spy로 검증), 입력 포커스 유지 | 예정 |
+| S9 | Phase 2 Todo 데모 + 통합 | `tests/demo/app.test.ts` | 상태 변경 시 변경된 노드만 patch (spy로 검증), 입력 포커스 유지 | 완료 |
 | S10 | 패치 로그·하이라이트 시각화, 최종 README | `tests/demo/patchLog.test.ts` | 전체 테스트·타입체크·빌드 통과 | 예정 |
 
 ## 빌드/테스트

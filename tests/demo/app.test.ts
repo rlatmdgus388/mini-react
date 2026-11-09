@@ -301,7 +301,7 @@ describe('Todo 앱', () => {
     it('저장은 상태가 바뀔 때만 한다 (검색어 입력만으로는 저장하지 않는다)', async () => {
       mount();
       await add('A');
-      const spy = vi.spyOn(Storage.prototype, 'setItem');
+      const spy = vi.spyOn(localStorage, 'setItem');
       await type('input[name="query"]', 'x');
       await click($('button[data-filter="done"]'));
       expect(spy).not.toHaveBeenCalled();
@@ -338,10 +338,11 @@ describe('Todo 앱', () => {
     it('한 항목을 완료해도 다른 항목 안에서는 DOM 변경이 일어나지 않는다 (MutationObserver)', async () => {
       await threeItems();
       const others = [$$('li')[0]!, $$('li')[2]!];
-      const observer = new MutationObserver(() => {});
+      const records: MutationRecord[] = [];
+      const observer = new MutationObserver((batch) => records.push(...batch));
       observer.observe(root, { subtree: true, attributes: true, childList: true, characterData: true });
       await click($$('li input[type="checkbox"]')[1]!);
-      const records = observer.takeRecords();
+      records.push(...observer.takeRecords()); // 아직 전달되지 않은 레코드도 모은다
       observer.disconnect();
       expect(records.length).toBeGreaterThan(0);
       for (const record of records) {

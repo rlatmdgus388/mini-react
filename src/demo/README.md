@@ -58,7 +58,7 @@ TodoApp (루트: useState ×4, useMemo ×3, useEffect ×2)
 - **`key = todo.id`.** 삭제·필터 변경으로 항목이 빠져도 나머지 `li` 노드가 재사용된다. `nextId`를 저장해 삭제해도 id가 겹치지 않는다.
 - **입력창은 제어 컴포넌트다.** `value`는 `draft` 상태에서 오고, `onInput`이 상태를 갱신한다. 렌더 후 `patch`는 같은 `input` 노드의 `value` property만 갱신하므로 **포커스와 커서가 유지된다.** 추가 후 `setDraft('')`로 비운다.
 - **제출은 폼 `submit`.** Enter와 버튼이 같은 경로이고, `preventDefault`로 페이지 이동을 막는다. 입력값은 폼 요소에서 직접 읽는다. 핸들러가 안정된 참조라 `draft` 상태를 클로저로 볼 수 없기 때문이다.
-- **저장 데이터를 믿지 않는다.** `loadData`는 JSON 파싱 실패·모양 불일치 시 빈 목록으로 시작하고, `nextId`가 기존 최대 id보다 작으면 올려서 key 충돌을 막는다.
+- **저장 데이터를 믿지 않는다.** `loadData`는 JSON 파싱 실패·모양 불일치·**id 중복**(key가 겹치므로) 시 빈 목록으로 시작하고, `nextId`가 기존 최대 id보다 작으면 올려서 key 충돌을 막는다.
 - **텍스트는 텍스트로만 들어간다.** 사용자가 `<img onerror=...>`를 입력해도 `createDOM`이 텍스트 노드로 만들므로 HTML로 해석되지 않는다.
 
 ### 검증 방법 (`tests/demo/app.test.ts`)

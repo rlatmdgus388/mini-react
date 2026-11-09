@@ -48,6 +48,8 @@ function loadData(): TodoData {
     if (typeof parsed !== 'object' || parsed === null) return empty;
     const { todos, nextId } = parsed as Record<string, unknown>;
     if (!Array.isArray(todos) || !todos.every(isTodo)) return empty;
+    // id가 중복되면 목록의 key가 겹쳐 항목이 엉뚱한 노드를 재사용하므로 손상된 데이터로 본다.
+    if (new Set(todos.map((t) => t.id)).size !== todos.length) return empty;
     const maxId = todos.reduce((max, t) => Math.max(max, t.id), 0);
     return { todos, nextId: typeof nextId === 'number' ? Math.max(nextId, maxId + 1) : maxId + 1 };
   } catch {

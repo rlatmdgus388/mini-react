@@ -233,6 +233,116 @@ describe('diff', () => {
     });
   });
 
+  describe('중첩 위치와 복합 조합', () => {
+    it('깊은 위치(path 2단계 이상)에서도 CREATE 경로가 정확하다', () => {
+      const added = h('li', null, 'c');
+      const patches = diff(
+        h('div', null, h('p'), h('ul', null, h('li', null, 'a'), h('li', null, 'b'))),
+        h('div', null, h('p'), h('ul', null, h('li', null, 'a'), h('li', null, 'b'), added)),
+      );
+      expect(patches).toEqual([{ type: 'CREATE', path: [1, 2], vnode: added }]);
+    });
+
+    it('깊은 위치에서 여러 자식을 지우면 그 부모 아래에서 뒤 인덱스부터 REMOVE', () => {
+      const patches = diff(
+        h('div', null, h('ul', null, h('li', null, 'a'), h('li', null, 'b'), h('li', null, 'c'))),
+        h('div', null, h('ul', null, h('li', null, 'a'))),
+      );
+      expect(patches).toEqual([
+        { type: 'REMOVE', path: [0, 2] },
+        { type: 'REMOVE', path: [0, 1] },
+      ]);
+    });
+
+    it('공통 구간의 TEXT/PROPS가 뒤쪽 REMOVE보다 먼저 나온다', () => {
+      const patches = diff(
+        h('ul', null, h('li', { class: 'a' }, 'x'), h('li', null, 'y'), h('li', null, 'z')),
+        h('ul', null, h('li', { class: 'b' }, 'X')),
+      );
+      expect(patches).toEqual([
+        { type: 'PROPS', path: [0], set: { class: 'b' }, remove: [] },
+        { type: 'TEXT', path: [0, 0], text: 'X' },
+        { type: 'REMOVE', path: [2] },
+        { type: 'REMOVE', path: [1] },
+      ]);
+    });
+
+    it('여러 부모에서 CREATE와 REMOVE가 섞여도 부모별로 경로가 독립적이다', () => {
+      const added = h('i');
+      const patches = diff(
+        h('div', null, h('p', null, h('b'), h('b')), h('p')),
+        h('div', null, h('p', null, h('b')), h('p', null, added)),
+      );
+      expect(patches).toEqual([
+        { type: 'REMOVE', path: [0, 1] },
+        { type: 'CREATE', path: [1, 0], vnode: added },
+      ]);
+    });
+
+    it('REPLACE된 서브트리 안쪽은 더 이상 비교하지 않는다 (자식 패치가 없다)', () => {
+      const next = h('section', null, h('p', null, 'changed'));
+      const patches = diff(h('div', null, h('article', null, h('p', null, 'x'))), h('div', null, next));
+      expect(patches).toEqual([{ type: 'REPLACE', path: [0], vnode: next }]);
+    });
+  });
+
+  describe('props 값 비교 상세', () => {
+    it('배열 props는 내용으로 비교한다', () => {
+      expect(diff(h('div', { data: [1, 2] }), h('div', { data: [1, 2] }))).toEqual([]);
+      const data = [1, 3];
+      expect(diff(h('div', { data: [1, 2] }), h('div', { data }))).toEqual([
+        { type: 'PROPS', path: [], set: { data }, remove: [] },
+      ]);
+      const longer = [1, 2, 3];
+      expect(diff(h('div', { data: [1, 2] }), h('div', { data: longer }))).toEqual([
+        { type: 'PROPS', path: [], set: { data: longer }, remove: [] },
+      ]);
+    });
+
+    it('중첩 객체 props는 깊게 비교한다', () => {
+      const same = () => ({ a: { b: { c: 1 } } });
+      expect(diff(h('div', { cfg: same() }), h('div', { cfg: same() }))).toEqual([]);
+      const changed = { a: { b: { c: 2 } } };
+      expect(diff(h('div', { cfg: same() }), h('div', { cfg: changed }))).toEqual([
+        { type: 'PROPS', path: [], set: { cfg: changed }, remove: [] },
+      ]);
+    });
+
+    it('객체의 키 개수가 다르면 변경으로 본다', () => {
+      const next = { color: 'red', margin: '0' };
+      expect(diff(h('div', { style: { color: 'red' } }), h('div', { style: next }))).toEqual([
+        { type: 'PROPS', path: [], set: { style: next }, remove: [] },
+      ]);
+    });
+
+    it('undefined 값 prop은 "있는 속성"으로 취급해 사라지면 remove에 담긴다', () => {
+      expect(diff(h('div', { id: undefined }), h('div'))).toEqual([
+        { type: 'PROPS', path: [], set: {}, remove: ['id'] },
+      ]);
+      expect(diff(h('div'), h('div', { id: undefined }))).toEqual([
+        { type: 'PROPS', path: [], set: { id: undefined }, remove: [] },
+      ]);
+    });
+
+    it('일반 객체가 아닌 객체(Date)는 참조로 비교한다', () => {
+      const d1 = new Date(0);
+      const d2 = new Date(0);
+      expect(diff(h('div', { at: d1 }), h('div', { at: d1 }))).toEqual([]);
+      expect(diff(h('div', { at: d1 }), h('div', { at: d2 }))).toEqual([
+        { type: 'PROPS', path: [], set: { at: d2 }, remove: [] },
+      ]);
+    });
+
+    it('일반 객체가 다른 타입으로 바뀌면 변경으로 본다', () => {
+      expect(diff(h('div', { v: { a: 1 } }), h('div', { v: 'x' }))).toEqual([
+        { type: 'PROPS', path: [], set: { v: 'x' }, remove: [] },
+      ]);
+      expect(diff(h('div', { v: [] }), h('div', { v: {} }))).toEqual([
+        { type: 'PROPS', path: [], set: { v: {} }, remove: [] },
+      ]);
+    });
+  });
+
   describe('순수성', () => {
     it('입력 트리를 변형하지 않는다 (deep freeze 상태에서도 동작)', () => {
       const deepFreeze = <T>(o: T): T => {

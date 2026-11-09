@@ -288,6 +288,17 @@ describe('Todo 앱', () => {
       expect($$('li')).toHaveLength(0);
     });
 
+    it('저장된 데이터에 id가 중복되어 있으면 key가 겹치므로 빈 목록으로 시작한다', () => {
+      mount({
+        todos: [
+          { id: 1, text: 'A', done: false },
+          { id: 1, text: 'B', done: false },
+        ],
+        nextId: 2,
+      });
+      expect($$('li')).toHaveLength(0);
+    });
+
     it('문서 제목에 남은 항목 수를 표시한다', async () => {
       mount();
       expect(document.title).toBe('Todo (0개 남음)');
@@ -345,8 +356,9 @@ describe('Todo 앱', () => {
       records.push(...observer.takeRecords()); // 아직 전달되지 않은 레코드도 모은다
       observer.disconnect();
       expect(records.length).toBeGreaterThan(0);
+      const untouched = [...others, $('form.add'), $('.filters'), $('h1')];
       for (const record of records) {
-        for (const li of others) expect(li.contains(record.target)).toBe(false);
+        for (const el of untouched) expect(el.contains(record.target)).toBe(false);
       }
     });
 

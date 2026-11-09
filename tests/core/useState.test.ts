@@ -379,4 +379,58 @@ describe('useState', () => {
       expect(root.textContent).toBe('1');
     });
   });
+
+  describe('보강: 예외와 함수 값', () => {
+    it('함수형 업데이터가 throw하면 상태는 그대로이고 예외가 호출자에게 전달된다', async () => {
+      const render = vi.fn();
+      const root = container();
+      let setN!: (f: (p: number) => number) => void;
+      new FunctionComponent(() => {
+        const [n, set] = useState(7);
+        setN = set;
+        render();
+        return h('p', null, String(n));
+      }, root).mount();
+      render.mockClear();
+      expect(() =>
+        setN(() => {
+          throw new Error('updater boom');
+        }),
+      ).toThrow('updater boom');
+      await flush();
+      expect(render).not.toHaveBeenCalled();
+      expect(root.textContent).toBe('7');
+    });
+
+    it('함수를 상태로 저장하려면 () => fn으로 감싸야 한다 (함수는 초기화 함수/업데이터로 해석된다)', async () => {
+      const fn = () => 'saved';
+      const seen: unknown[] = [];
+      const root = container();
+      new FunctionComponent(() => {
+        const [value] = useState<() => string>(() => fn);
+        seen.push(value);
+        return h('p');
+      }, root).mount();
+      expect(seen[0]).toBe(fn);
+    });
+
+    it('렌더가 throw한 뒤에도 이미 바뀐 state 값은 유지되고 다음 update에서 반영된다', async () => {
+      let shouldThrow = false;
+      const root = container();
+      let setN!: (v: number) => void;
+      const app = new FunctionComponent(() => {
+        const [n, set] = useState(0);
+        setN = set;
+        if (shouldThrow) throw new Error('render boom');
+        return h('p', null, String(n));
+      }, root);
+      app.mount();
+      shouldThrow = true;
+      expect(() => app.update()).toThrow('render boom');
+      shouldThrow = false;
+      setN(5);
+      await flush();
+      expect(root.textContent).toBe('5');
+    });
+  });
 });

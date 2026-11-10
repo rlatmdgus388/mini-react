@@ -1,1 +1,49 @@
-<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>Mini React - Phase 1</title></head><body><h1>Phase 1</h1></body></html>
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mini React - Phase 1</title>
+    <link rel="stylesheet" href="/src/styles/main.css" />
+  </head>
+  <body>
+    <header class="page-header">
+      <h1>Phase 1 · Virtual DOM Diff / Patch</h1>
+      <p>
+        오른쪽 <strong>테스트 영역</strong>을 직접 고친 뒤 <strong>Patch</strong>를 누르면,
+        이전 VDOM과 비교해 바뀐 부분만 왼쪽 <strong>실제 영역</strong>에 반영됩니다.
+      </p>
+      <nav class="page-nav"><a href="/app.html">Phase 2 · Todo 앱 →</a></nav>
+    </header>
+
+    <div class="toolbar">
+      <button data-action="add-paragraph">문단 추가</button>
+      <button data-action="add-item">항목 추가</button>
+      <button data-action="remove-last">마지막 요소 삭제</button>
+      <span class="toolbar-spacer"></span>
+      <button id="back-btn">← 뒤로</button>
+      <button id="forward-btn">앞으로 →</button>
+      <button id="patch-btn" class="primary">Patch</button>
+    </div>
+
+    <main class="panels">
+      <section class="panel">
+        <h2>실제 영역 <small>(patch로만 바뀜)</small></h2>
+        <div id="real" class="area">
+          <h1>미니 리액트</h1>
+          <p>Virtual DOM은 <strong>바뀐 부분만</strong> 실제 DOM에 반영합니다.</p>
+          <ul>
+            <li>diff: 두 트리를 비교한다</li>
+            <li>patch: 바뀐 곳만 고친다</li>
+          </ul>
+        </div>
+      </section>
+      <section class="panel">
+        <h2>테스트 영역 <small>(직접 편집)</small></h2>
+        <div id="test" class="area editable" contenteditable="true" spellcheck="false"></div>
+      </section>
+    </main>
+
+    <script type="module" src="/src/demo/phase1Entry.ts"></script>
+  </body>
+</html>

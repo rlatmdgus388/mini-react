@@ -66,6 +66,15 @@ export function patch(container: Element, patches: readonly Patch[]): void {
         parentOf(node).removeChild(node);
         break;
       }
+      case 'MOVE': {
+        if (p.path.length === 0) throw new Error('patch: 루트 노드는 MOVE할 수 없습니다.');
+        const node = resolve(container, p.path);
+        const parent = parentOf(node);
+        // 노드를 형제 목록에서 뺀 목록 기준으로 to번째 자리 앞에 끼운다. insertBefore는 노드를 옮기므로 DOM 노드는 재사용된다.
+        const siblings = Array.from(parent.childNodes).filter((n) => n !== node);
+        parent.insertBefore(node, siblings[p.to] ?? null);
+        break;
+      }
       case 'REPLACE': {
         const node = resolve(container, p.path);
         const parent = parentOf(node);

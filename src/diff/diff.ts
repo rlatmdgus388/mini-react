@@ -37,7 +37,15 @@ export interface PropsPatch {
   remove: string[];
 }
 
-export type Patch = CreatePatch | RemovePatch | ReplacePatch | TextPatch | PropsPatch;
+export interface MovePatch {
+  type: 'MOVE';
+  /** 이동할 노드의 현재 경로 (이 패치를 적용하기 직전 기준) */
+  path: Path;
+  /** 노드를 형제 목록에서 뺀 뒤, 그 목록의 몇 번째 자리에 다시 넣을지 */
+  to: number;
+}
+
+export type Patch = CreatePatch | RemovePatch | ReplacePatch | TextPatch | PropsPatch | MovePatch;
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
   if (typeof v !== 'object' || v === null) return false;
@@ -77,7 +85,99 @@ function diffProps(path: Path, oldProps: Props, newProps: Props): PropsPatch | n
   return { type: 'PROPS', path, set, remove };
 }
 
+function hasKey(v: VNode): boolean {
+  return !isTextVNode(v) && v.key !== null;
+}
+
+/**
+ * 형제 사이에서 "같은 노드"를 가리키는 식별자.
+ * key가 있으면 key로, 없으면 자리(인덱스)로 식별한다. 접두어로 둘이 섞이지 않게 한다.
+ * key는 문자열로 바꿔 비교하므로 1과 '1'은 같은 key다.
+ */
+function childId(v: VNode, index: number): string {
+  return !isTextVNode(v) && v.key !== null ? `k:${String(v.key)}` : `i:${index}`;
+}
+
+/** seq의 최장 증가 부분수열에 속한 "값"들의 집합. 이 값들은 이동하지 않고 제자리에 둔다. */
+function longestIncreasingSubsequence(seq: number[]): Set<number> {
+  const tails: number[] = []; // tails[k] = 길이 k+1인 증가 부분수열의 끝 원소가 있는 seq 인덱스
+  const prev: number[] = new Array<number>(seq.length).fill(-1);
+  for (let i = 0; i < seq.length; i++) {
+    let lo = 0;
+    let hi = tails.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (seq[tails[mid]!]! < seq[i]!) lo = mid + 1;
+      else hi = mid;
+    }
+    if (lo > 0) prev[i] = tails[lo - 1]!;
+    tails[lo] = i;
+  }
+  const result = new Set<number>();
+  let k = tails.length > 0 ? tails[tails.length - 1]! : -1;
+  while (k >= 0) {
+    result.add(seq[k]!);
+    k = prev[k]!;
+  }
+  return result;
+}
+
+/**
+ * key 기반 자식 비교. 패치는 다음 순서로 낸다.
+ * 1) 짝지어진 자식의 내부 변경 (경로는 아직 아무것도 움직이기 전이므로 old 인덱스)
+ * 2) 짝이 없는 old 자식 REMOVE (뒤 인덱스부터)
+ * 3) new 순서대로 훑으며 MOVE / CREATE. 최장 증가 부분수열에 속한 노드는 제자리에 두고,
+ *    나머지는 "new 기준 바로 앞 형제" 뒤로 옮긴다.
+ */
+function diffKeyedChildren(path: Path, oldChildren: VNode[], newChildren: VNode[], patches: Patch[]): void {
+  const oldIndexById = new Map<string, number>();
+  oldChildren.forEach((child, i) => {
+    const id = childId(child, i);
+    if (!oldIndexById.has(id)) oldIndexById.set(id, i); // key 중복이면 첫 번째만 짝이 된다
+  });
+
+  const used = new Set<number>();
+  const matched = newChildren.map((child, j) => {
+    const oldIndex = oldIndexById.get(childId(child, j));
+    if (oldIndex === undefined || used.has(oldIndex)) return -1;
+    used.add(oldIndex);
+    return oldIndex;
+  });
+
+  matched.forEach((oldIndex, j) => {
+    if (oldIndex >= 0) diffNode([...path, oldIndex], oldChildren[oldIndex]!, newChildren[j]!, patches);
+  });
+
+  for (let i = oldChildren.length - 1; i >= 0; i--) {
+    if (!used.has(i)) patches.push({ type: 'REMOVE', path: [...path, i] });
+  }
+
+  // 지금부터 current는 "패치를 순서대로 적용했을 때의 형제 목록"을 흉내 낸다.
+  // 원소는 old 인덱스, 새로 만드는 노드는 oldChildren.length + j.
+  const current = oldChildren.map((_, i) => i).filter((i) => used.has(i));
+  const stable = longestIncreasingSubsequence(matched.filter((i) => i >= 0));
+  const ids = matched.map((oldIndex, j) => (oldIndex >= 0 ? oldIndex : oldChildren.length + j));
+
+  newChildren.forEach((child, j) => {
+    const id = ids[j]!;
+    const isNew = matched[j]! < 0;
+    if (!isNew && stable.has(id)) return;
+
+    const from = isNew ? -1 : current.indexOf(id);
+    if (!isNew) current.splice(from, 1);
+    const at = j === 0 ? 0 : current.indexOf(ids[j - 1]!) + 1;
+    current.splice(at, 0, id);
+
+    if (isNew) patches.push({ type: 'CREATE', path: [...path, at], vnode: child });
+    else if (from !== at) patches.push({ type: 'MOVE', path: [...path, from], to: at });
+  });
+}
+
 function diffChildren(path: Path, oldChildren: VNode[], newChildren: VNode[], patches: Patch[]): void {
+  if (oldChildren.some(hasKey) || newChildren.some(hasKey)) {
+    diffKeyedChildren(path, oldChildren, newChildren, patches);
+    return;
+  }
   const common = Math.min(oldChildren.length, newChildren.length);
   for (let i = 0; i < common; i++) {
     diffNode([...path, i], oldChildren[i]!, newChildren[i]!, patches);

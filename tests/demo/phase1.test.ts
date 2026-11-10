@@ -150,6 +150,30 @@ describe('Phase1', () => {
     });
   });
 
+  describe('onPatch 확장 인자', () => {
+    it('변경된 노드와 출처(Patch/뒤로/앞으로)를 함께 전달한다', () => {
+      const calls: { touched: Node[]; source: string }[] = [];
+      document.body.innerHTML = FIXTURE;
+      const $ = <T extends HTMLElement>(sel: string) => document.querySelector<T>(sel)!;
+      const phase1 = new Phase1(
+        {
+          real: $('#real'),
+          test: $('#test'),
+          patchButton: $<HTMLButtonElement>('#patch-btn'),
+          backButton: $<HTMLButtonElement>('#back-btn'),
+          forwardButton: $<HTMLButtonElement>('#forward-btn'),
+        },
+        { onPatch: (_patches, touched, source) => calls.push({ touched, source }) },
+      );
+      $('#test').querySelector('p')!.firstChild!.textContent = '변경';
+      phase1.patch();
+      phase1.back();
+      phase1.forward();
+      expect(calls.map((c) => c.source)).toEqual(['Patch', '뒤로', '앞으로']);
+      expect(calls[0]!.touched).toEqual([$('#real').querySelector('p')!.firstChild]);
+    });
+  });
+
   describe('뒤로 / 앞으로', () => {
     function twoEdits() {
       const ctx = setup();

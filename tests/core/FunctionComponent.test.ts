@@ -42,6 +42,18 @@ describe('FunctionComponent', () => {
       expect(root.textContent).toBe('just text');
     });
 
+    it('onPatch는 변경된 노드 목록도 함께 받는다', () => {
+      let label = 'a';
+      const calls: Node[][] = [];
+      const root = container();
+      const app = new FunctionComponent(() => h('p', null, label), root, {}, { onPatch: (_p, touched) => calls.push(touched) });
+      app.mount();
+      expect(calls[0]).toEqual([root.firstElementChild]);
+      label = 'b';
+      app.update();
+      expect(calls[1]).toEqual([root.querySelector('p')!.firstChild]);
+    });
+
     it('onPatch로 첫 렌더의 CREATE 패치를 받는다', () => {
       const received: Patch[][] = [];
       const root = container();

@@ -1,1 +1,25 @@
-<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>Mini React - Phase 2</title></head><body><h1>Phase 2</h1></body></html>
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mini React - Phase 2</title>
+    <link rel="stylesheet" href="/src/styles/main.css" />
+  </head>
+  <body>
+    <header class="page-header">
+      <h1>Phase 2 · FunctionComponent + Hooks</h1>
+      <p>
+        <code>useState</code> · <code>useMemo</code> · <code>useEffect</code>로 만든 Todo 앱입니다.
+        상태가 바뀌면 새 VDOM을 만들고, 이전 VDOM과 비교해 <strong>바뀐 노드만</strong> patch합니다.
+      </p>
+      <nav class="page-nav"><a href="/">← Phase 1 · Diff / Patch</a></nav>
+    </header>
+
+    <main class="app-layout">
+      <section id="app" class="panel"></section>
+    </main>
+
+    <script type="module" src="/src/demo/appEntry.ts"></script>
+  </body>
+</html>

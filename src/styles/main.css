@@ -129,3 +129,104 @@ button.primary {
 [data-root] {
   display: contents;
 }
+
+/* ---- Phase 2: Todo 앱 ---- */
+.app-layout {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.todo-app {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.todo-app h1 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.todo-app form.add {
+  display: flex;
+  gap: 8px;
+}
+
+.todo-app input[type='text'],
+.todo-app input[type='search'] {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+}
+
+.todo-app input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.filters {
+  display: flex;
+  gap: 6px;
+}
+
+.filters button.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+.todo-app ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.todo-app li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.todo-app li .text {
+  flex: 1;
+  word-break: break-all;
+}
+
+.todo-app li.done .text {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.todo-app .empty {
+  margin: 8px 0;
+  color: var(--muted);
+}
+
+.todo-app .summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.todo-app .stats {
+  margin: 0;
+  color: var(--muted);
+}
+
+code {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--border);
+  font-size: 0.9em;
+}
